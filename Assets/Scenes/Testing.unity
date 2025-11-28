@@ -1009,8 +1009,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02944f88e34ceb644a2f87a7bdb95d5b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sensitivityX: 30
-  sensitivityY: 30
+  sensitivityX: 32
+  sensitivityY: 32
   clampY: 80
   enableHeadbob: 1
   headbobStrength: 0.05
