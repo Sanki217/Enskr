@@ -6,7 +6,7 @@ public class PlayerMovement : MonoBehaviour
 {
     [Header("Movement Settings")]
     public float moveSpeed = 7f;
-    public float sprintMultiplier = 1f; // Not using sprint, but here for future use
+    public float sprintMultiplier = 1f; // future use
     public float jumpForce = 6f;
     public float gravity = -20f;
 
@@ -16,22 +16,29 @@ public class PlayerMovement : MonoBehaviour
     public float dashDuration = 0.15f;
 
     private PlayerControls controls;
-    private CharacterController controller;
+    public CharacterController controller { get; private set; }
 
     private Vector2 moveInput;
     private Vector3 velocity;
     private bool isGrounded;
 
     private bool canDash = true;
-    private bool isDashing = false;
+    public bool isDashing = false;
 
     private float dashTimer;
     private Vector3 dashDirection;
+
+    // Reference to camera script (for FOV change)
+    private PlayerCamera camScript;
+
+    // Used by headbob
+    public bool CurrentlyMoving => moveInput.magnitude > 0.1f;
 
     private void Awake()
     {
         controls = new PlayerControls();
         controller = GetComponent<CharacterController>();
+        camScript = GetComponentInChildren<PlayerCamera>();
 
         controls.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
         controls.Player.Move.canceled += ctx => moveInput = Vector2.zero;
@@ -82,13 +89,15 @@ public class PlayerMovement : MonoBehaviour
         canDash = false;
         isDashing = true;
 
+        if (camScript != null)
+            camScript.isDashing = true;
+
         dashTimer = dashDuration;
 
         dashDirection = (transform.forward * moveInput.y + transform.right * moveInput.x).normalized;
         if (dashDirection.magnitude < 0.1f)
             dashDirection = transform.forward;
 
-        // No gravity during dash
         velocity.y = 0;
     }
 
@@ -104,6 +113,9 @@ public class PlayerMovement : MonoBehaviour
         if (dashTimer <= 0)
         {
             isDashing = false;
+            if (camScript != null)
+                camScript.isDashing = false;
+
             Invoke(nameof(ResetDash), dashCooldown);
         }
     }
