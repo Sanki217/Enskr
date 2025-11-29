@@ -8,6 +8,9 @@ public class PlayerCamera : MonoBehaviour
     public float sensitivityY = 30f;
     public float clampY = 80f;
 
+    [Header("Camera Smoothing")]
+    public float smoothTime = 0.03f;
+
     [Header("Headbob Settings")]
     public bool enableHeadbob = true;
     public float headbobStrength = 0.05f;
@@ -25,17 +28,21 @@ public class PlayerCamera : MonoBehaviour
     private Vector2 lookInput;
     private float xRotation = 0f;
 
-    // Headbob internal
+    // Smooth rotation
+    private float smoothXRot;
+    private float smoothXRotVel;
+    private float smoothYRot;
+    private float smoothYRotVel;
+
+    // Headbob
     private float bobTimer = 0f;
     private Vector3 camStartLocalPos;
 
-    // Dash state comes from PlayerMovement
     public bool isDashing = false;
 
     private void Awake()
     {
         controls = new PlayerControls();
-
         controls.Player.Look.performed += ctx => lookInput = ctx.ReadValue<Vector2>();
         controls.Player.Look.canceled += ctx => lookInput = Vector2.zero;
 
@@ -57,41 +64,54 @@ public class PlayerCamera : MonoBehaviour
         float mouseX = lookInput.x * sensitivityX * Time.deltaTime;
         float mouseY = lookInput.y * sensitivityY * Time.deltaTime;
 
+        // target vertical rotation
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, -clampY, clampY);
 
-        transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
-        playerBody.Rotate(Vector3.up * mouseX);
+        // SMOOTH VERTICAL ROTATION
+        smoothXRot = Mathf.SmoothDamp(
+            smoothXRot,
+            xRotation,
+            ref smoothXRotVel,
+            smoothTime
+        );
+
+        // SMOOTH HORIZONTAL ROTATION
+        smoothYRot = Mathf.SmoothDamp(
+            smoothYRot,
+            mouseX,
+            ref smoothYRotVel,
+            smoothTime
+        );
+
+        // Apply vertical smoothing
+        transform.localRotation = Quaternion.Euler(smoothXRot, 0f, 0f);
+
+        // Apply horizontal smoothing to player body
+        playerBody.Rotate(Vector3.up * smoothYRot);
     }
 
     private void HandleHeadbob()
     {
+        PlayerMovement pm = playerBody.GetComponent<PlayerMovement>();
+
         if (!enableHeadbob)
         {
-            transform.localPosition = Vector3.Lerp(
-                transform.localPosition,
-                camStartLocalPos,
-                Time.deltaTime * 10f
-            );
+            transform.localPosition =
+                Vector3.Lerp(transform.localPosition, camStartLocalPos, Time.deltaTime * 10f);
             return;
         }
 
-        // Only bob if player moves
-        PlayerMovement pm = playerBody.GetComponent<PlayerMovement>();
         bool moving = pm != null && pm.CurrentlyMoving;
 
         if (!moving || !pm.controller.isGrounded || isDashing)
         {
-            transform.localPosition = Vector3.Lerp(
-                transform.localPosition,
-                camStartLocalPos,
-                Time.deltaTime * 8f
-            );
+            transform.localPosition =
+                Vector3.Lerp(transform.localPosition, camStartLocalPos, Time.deltaTime * 8f);
             return;
         }
 
         bobTimer += Time.deltaTime * headbobSpeed;
-
         float bobOffset = Mathf.Sin(bobTimer) * headbobStrength;
 
         transform.localPosition = camStartLocalPos + new Vector3(0, bobOffset, 0);
